@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Pixel Runner: Deluxe Edition</title>
+    
+    <!-- SEO Meta Tags -->
+    <meta name="description" content="A premium 8-bit retro endless runner game with parallax depth, day/night cycles, synthesized retro sounds, and unique character abilities.">
+    <meta name="keywords" content="retro game, pixel art, arcade, web audio api, parallax runner, HTML5 canvas">
+    <meta name="author" content="Antigravity Team">
+    
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+    <!-- Game Engine Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- UI Overlay Layer -->
+    <div id="ui-layer">
+        
+        <!-- Hearts Lives Indicator -->
+        <div id="lives-display">
+            <span class="heart">❤</span>
+        </div>
+
+        <!-- High Score and Score Board -->
+        <div id="score-board" class="retro-font">
+            HI <span id="hi-score">00000</span> <span id="score">00000</span><br>
+            <span id="carrot-display">🥕 <span id="carrot-count">00</span></span>
+        </div>
+
+        <!-- 1. START GAME SCREEN -->
+        <div id="start-screen" class="screen">
+            <div class="glass-panel">
+                <h1 class="retro-font">PIXEL RUNNER: <span>DELUXE</span></h1>
+                
+                <div class="selector-container">
+                    <div class="char-grid">
+                        <div class="char-card selected" onclick="selectChar('bunny', this)">
+                            <canvas id="menu-bunny" width="64" height="64"></canvas>
+                            <div class="char-name retro-font">BUNNY</div>
+                        </div>
+                        <div class="char-card" onclick="selectChar('fox', this)">
+                            <canvas id="menu-fox" width="64" height="64"></canvas>
+                            <div class="char-name retro-font">FOX</div>
+                        </div>
+                        <div class="char-card" onclick="selectChar('cat', this)">
+                            <canvas id="menu-cat" width="64" height="64"></canvas>
+                            <div class="char-name retro-font">CAT</div>
+                        </div>
+                        <div class="char-card" onclick="selectChar('bear', this)">
+                            <canvas id="menu-bear" width="64" height="64"></canvas>
+                            <div class="char-name retro-font">BEAR</div>
+                        </div>
+                    </div>
+
+                    <!-- Selected Character Stats Card -->
+                    <div class="stats-panel">
+                        <div class="stat-row">
+                            <span class="stat-label">SPEED:</span>
+                            <div class="stat-bar-container"><div id="stat-speed-bar" class="stat-bar"></div></div>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">JUMP HEIGHT:</span>
+                            <div class="stat-bar-container"><div id="stat-jump-bar" class="stat-bar"></div></div>
+                        </div>
+                        <div class="stat-row">
+                            <span class="stat-label">WEIGHT:</span>
+                            <div class="stat-bar-container"><div id="stat-weight-bar" class="stat-bar"></div></div>
+                        </div>
+                        <div id="ability-text" class="ability-text retro-font">SPECIAL: Double Jump Enabled</div>
+                    </div>
+                </div>
+
+                <button class="action-btn" onclick="startGame()">START RUN</button>
+                
+                <div class="controls-info">
+                    💻 <strong>Space / Up Arrow</strong> = Jump | <strong>Down Arrow</strong> = Duck / Fast Fall<br>
+                    📱 <strong>Tap Left Screen</strong> = Jump | <strong>Hold Right Screen</strong> = Duck / Slide
+                </div>
+            </div>
+        </div>
+
+        <!-- 2. GAME OVER OVERLAY SCREEN -->
+        <div id="game-over-screen" class="screen">
+            <div class="glass-panel" style="max-width: 450px;">
+                <div id="game-over-text" class="retro-font">CRASHED!</div>
+                
+                <div class="stats-grid">
+                    <div class="stat-box">
+                        <div class="stat-box-label retro-font">FINAL SCORE</div>
+                        <div id="go-score" class="stat-box-val retro-font">00000</div>
+                    </div>
+                    <div class="stat-box">
+                        <div class="stat-box-label retro-font">CARROTS</div>
+                        <div id="go-carrots" class="stat-box-val retro-font">00</div>
+                    </div>
+                </div>
+
+                <button class="action-btn retry-btn" onclick="startGame()">TRY AGAIN</button>
+            </div>
+        </div>
+
+        <!-- 3. CONFIGURATION DRAWER -->
+        <button id="settings-toggle" title="Open Settings">⚙</button>
+        <div id="settings-drawer">
+            <div class="drawer-title retro-font">SETTINGS</div>
+            <div class="drawer-row">
+                <span class="retro-font" style="font-size: 10px;">SFX SOUNDS</span>
+                <label class="switch">
+                    <input type="checkbox" id="sfx-switch" checked>
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="drawer-row">
+                <span class="retro-font" style="font-size: 10px;">MUSIC BGM</span>
+                <label class="switch">
+                    <input type="checkbox" id="bgm-switch">
+                    <span class="slider"></span>
+                </label>
+            </div>
+            <div class="controls-info">
+                <strong>KEYBOARD CONTROLS:</strong><br>
+                • Jump: Space or Up-Arrow<br>
+                • Short-Hop: Release Space early<br>
+                • Duck: Hold Down-Arrow<br><br>
+                <strong>MOBILE TOUCH:</strong><br>
+                • Left half: Jump<br>
+                • Right half: Duck / Slide
+            </div>
+        </div>
+
+    </div>
+
+    <!-- Main Game Script -->
+    <script src="game.js"></script>
+</body>
+</html>
