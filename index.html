@@ -12,6 +12,12 @@
     
     <!-- Stylesheet -->
     <link rel="stylesheet" href="style.css">
+    
+    <!-- Web App Manifest for PWA Mobile Installation -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0c1020">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 </head>
 <body>
 
@@ -140,5 +146,16 @@
 
     <!-- Main Game Script -->
     <script src="game.js"></script>
+    
+    <!-- Service Worker Registration -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js')
+                    .then(reg => console.log('PWA Service Worker Registered!'))
+                    .catch(err => console.error('PWA Service Worker Registration Failed:', err));
+            });
+        }
+    </script>
 </body>
 </html>
