@@ -1,0 +1,59 @@
+name: Sign Android APK
+
+on:
+  push:
+    paths:
+      - 'PixelRunner-unsigned.apk'
+
+permissions:
+  contents: write
+
+jobs:
+  sign:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Java
+        uses: actions/setup-java@v3
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+
+      - name: Locate Android build tools and apksigner
+        run: |
+          ANDROID_BUILD_TOOLS=$(ls -d /usr/local/lib/android/sdk/build-tools/* | tail -1)
+          echo "BUILD_TOOLS=$ANDROID_BUILD_TOOLS" >> $GITHUB_ENV
+          echo "Using build tools from $ANDROID_BUILD_TOOLS"
+
+      - name: Generate keystore and Sign APK
+        run: |
+          # Generate a keystore
+          keytool -genkeypair -v \
+            -keystore my-release-key.jks \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 10000 \
+            -alias my-key-alias \
+            -dname "CN=PixelRunner, O=Rivu, C=US" \
+            -storepass password \
+            -keypass password
+
+          # Sign using apksigner
+          $BUILD_TOOLS/apksigner sign \
+            --ks my-release-key.jks \
+            --ks-key-alias my-key-alias \
+            --ks-pass pass:password \
+            --key-pass pass:password \
+            --out PixelRunner.apk \
+            PixelRunner-unsigned.apk
+
+      - name: Commit and Push signed APK
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git rm PixelRunner-unsigned.apk
+          git add PixelRunner.apk
+          git commit -m "Auto-sign Android APK via GitHub Actions"
+          git push origin main
