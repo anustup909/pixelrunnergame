@@ -1525,3 +1525,29 @@ if (bgmSwitch) {
         AudioEngine.setBGMMute(!e.target.checked);
     });
 }
+
+// 14. DISCORD EMBEDDED APP SDK INTEGRATION
+async function initDiscordActivity() {
+    const params = new URLSearchParams(window.location.search);
+    const isDiscordFrame = params.has('frame_id') || 
+                           (window.location.ancestorOrigins && 
+                            Array.from(window.location.ancestorOrigins).some(o => o.includes('discord')));
+    
+    if (isDiscordFrame) {
+        console.log("Discord context detected. Loading Embedded App SDK...");
+        try {
+            // Import ESM version of Discord SDK dynamically
+            const { DiscordSDK } = await import("https://cdn.jsdelivr.net/npm/@discord/embedded-app-sdk/+esm");
+            
+            // Set up placeholder client ID (User can replace this in Developer Portal settings)
+            const clientId = "124413592200000000"; 
+            const discordSdk = new DiscordSDK(clientId);
+            
+            await discordSdk.ready();
+            console.log("Discord SDK initialized successfully!");
+        } catch (err) {
+            console.error("Failed to initialize Discord Embedded App SDK:", err);
+        }
+    }
+}
+initDiscordActivity();
