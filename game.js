@@ -650,6 +650,8 @@ function preRenderSprite(data, scale = PIXEL) {
     const temp = document.createElement('canvas');
     temp.width = data[0].length * scale;
     temp.height = data.length * scale;
+    temp.originalWidth = temp.width;
+    temp.originalHeight = temp.height;
     const tCtx = temp.getContext('2d');
     
     // Disable anti-aliasing
@@ -667,24 +669,99 @@ function preRenderSprite(data, scale = PIXEL) {
     return temp;
 }
 
+// Procedural color darkening for 3D extrusion shading
+function adjustColorBrightness(hex, factor) {
+    if (!hex || hex === 'transparent') return null;
+    let r, g, b;
+    if (hex.startsWith('#')) {
+        const bigint = parseInt(hex.slice(1), 16);
+        if (hex.length === 4) {
+            r = ((bigint >> 8) & 0xf) * 17;
+            g = ((bigint >> 4) & 0xf) * 17;
+            b = (bigint & 0xf) * 17;
+        } else {
+            r = (bigint >> 16) & 255;
+            g = (bigint >> 8) & 255;
+            b = bigint & 255;
+        }
+    } else if (hex.startsWith('rgb')) {
+        const match = hex.match(/\d+/g);
+        if (match) {
+            r = parseInt(match[0]);
+            g = parseInt(match[1]);
+            b = parseInt(match[2]);
+        } else {
+            return hex;
+        }
+    } else {
+        return hex;
+    }
+    r = Math.max(0, Math.min(255, Math.round(r * factor)));
+    g = Math.max(0, Math.min(255, Math.round(g * factor)));
+    b = Math.max(0, Math.min(255, Math.round(b * factor)));
+    return `rgb(${r}, ${g}, ${b})`;
+}
+
+// Procedural 3D stacked sprite pre-renderer
+function preRenderSprite3D(data, scale = PIXEL, depth = 6, dx = -1.2, dy = -1.2) {
+    const temp = document.createElement('canvas');
+    const origW = data[0].length * scale;
+    const origH = data.length * scale;
+    
+    // Total shifts
+    const shiftX = Math.abs(dx) * depth;
+    const shiftY = Math.abs(dy) * depth;
+    
+    temp.width = Math.ceil(origW + shiftX);
+    temp.height = Math.ceil(origH + shiftY);
+    temp.originalWidth = origW;
+    temp.originalHeight = origH;
+    
+    const tCtx = temp.getContext('2d');
+    tCtx.imageSmoothingEnabled = false;
+    
+    // Draw layers from back (i = depth - 1) to front (i = 0)
+    for (let i = depth - 1; i >= 0; i--) {
+        // Calculate offsets based on direction
+        const offsetX = dx < 0 ? (depth - 1 - i) * Math.abs(dx) : i * dx;
+        const offsetY = dy < 0 ? (depth - 1 - i) * Math.abs(dy) : i * dy;
+        
+        // Darken back layers for lighting depth
+        const factor = depth > 1 ? 0.45 + 0.55 * (1 - i / (depth - 1)) : 1.0;
+        
+        for (let y = 0; y < data.length; y++) {
+            for (let x = 0; x < data[y].length; x++) {
+                const colorCode = data[y][x];
+                if (PALETTE[colorCode]) {
+                    const baseColor = PALETTE[colorCode];
+                    const darkColor = adjustColorBrightness(baseColor, factor);
+                    tCtx.fillStyle = darkColor || baseColor;
+                    tCtx.fillRect(offsetX + x * scale, offsetY + y * scale, scale, scale);
+                }
+            }
+        }
+    }
+    return temp;
+}
+
 // Generate assets
 function buildAssetCache() {
-    // Character Animations
+    // Character Animations (using 3D pre-renderer)
     for (const char in CHAR_STATS) {
         ASSETS[char] = {
-            f1: preRenderSprite(SPRITE_DATA[char].f1),
-            f2: preRenderSprite(SPRITE_DATA[char].f2),
-            duck: preRenderSprite(SPRITE_DATA[char].duck)
+            f1: preRenderSprite3D(SPRITE_DATA[char].f1, PIXEL, 6, -1.2, -1.2),
+            f2: preRenderSprite3D(SPRITE_DATA[char].f2, PIXEL, 6, -1.2, -1.2),
+            duck: preRenderSprite3D(SPRITE_DATA[char].duck, PIXEL, 6, -1.2, -1.2)
         };
     }
-    // Environment Obstacles & Items
-    ASSETS.tree = preRenderSprite(SPRITE_DATA.env.tree);
-    ASSETS.tree2 = preRenderSprite(SPRITE_DATA.env.tree2);
-    ASSETS.carrot = preRenderSprite(SPRITE_DATA.env.carrot);
-    ASSETS.goldenCarrot = preRenderSprite(SPRITE_DATA.env.goldenCarrot);
-    ASSETS.shieldPowerup = preRenderSprite(SPRITE_DATA.env.shieldPowerup);
-    ASSETS.bird1 = preRenderSprite(SPRITE_DATA.env.bird1);
-    ASSETS.bird2 = preRenderSprite(SPRITE_DATA.env.bird2);
+    // Environment Obstacles & Items (using 3D pre-renderer)
+    ASSETS.tree = preRenderSprite3D(SPRITE_DATA.env.tree, PIXEL, 6, -1.2, -1.2);
+    ASSETS.tree2 = preRenderSprite3D(SPRITE_DATA.env.tree2, PIXEL, 6, -1.2, -1.2);
+    ASSETS.carrot = preRenderSprite3D(SPRITE_DATA.env.carrot, PIXEL, 4, -1.0, -1.0);
+    ASSETS.goldenCarrot = preRenderSprite3D(SPRITE_DATA.env.goldenCarrot, PIXEL, 4, -1.0, -1.0);
+    ASSETS.shieldPowerup = preRenderSprite3D(SPRITE_DATA.env.shieldPowerup, PIXEL, 4, -1.0, -1.0);
+    ASSETS.bird1 = preRenderSprite3D(SPRITE_DATA.env.bird1, PIXEL, 5, -1.2, -1.2);
+    ASSETS.bird2 = preRenderSprite3D(SPRITE_DATA.env.bird2, PIXEL, 5, -1.2, -1.2);
 }
 
 // 5. PARALLAX SCROLLING BACKGROUND
@@ -1148,35 +1225,38 @@ function spawnObstacle() {
     // 1. Bird obstacle (Requires score > 200)
     if (roll < 0.25 && score > 200) {
         const flightHeights = [groundY - 140, groundY - 70, groundY - 20];
+        const birdAsset = ASSETS.bird1;
         obstacles.push({
             type: 'bird',
             x: nextSpawnX,
             y: flightHeights[Math.floor(Math.random() * flightHeights.length)],
-            w: ASSETS.bird1.width,
-            h: ASSETS.bird1.height,
+            w: birdAsset.originalWidth || birdAsset.width,
+            h: birdAsset.originalHeight || birdAsset.height,
             speedMultiplier: 1.2
         });
     }
     // 2. Shield Bubble power-up (Rare, only spawns if player doesn't have shield)
     else if (roll < 0.32 && !hasShield) {
+        const shieldAsset = ASSETS.shieldPowerup;
         obstacles.push({
             type: 'shield',
             x: nextSpawnX,
             y: groundY - 80 - Math.random() * 50,
-            w: ASSETS.shieldPowerup.width,
-            h: ASSETS.shieldPowerup.height,
+            w: shieldAsset.originalWidth || shieldAsset.width,
+            h: shieldAsset.originalHeight || shieldAsset.height,
             collected: false
         });
     }
     // 3. Carrot / Golden Carrot Collectible
     else if (roll < 0.60) {
         const isGolden = Math.random() < 0.08; // 8% chance golden
+        const carrotAsset = isGolden ? ASSETS.goldenCarrot : ASSETS.carrot;
         obstacles.push({
             type: isGolden ? 'goldenCarrot' : 'carrot',
             x: nextSpawnX,
             y: groundY - 50 - Math.random() * 80,
-            w: ASSETS.carrot.width,
-            h: ASSETS.carrot.height,
+            w: carrotAsset.originalWidth || carrotAsset.width,
+            h: carrotAsset.originalHeight || carrotAsset.height,
             collected: false
         });
     }
@@ -1187,9 +1267,9 @@ function spawnObstacle() {
         obstacles.push({
             type: 'tree',
             x: nextSpawnX,
-            y: groundY - currentTree.height,
-            w: currentTree.width,
-            h: currentTree.height,
+            y: groundY - (currentTree.originalHeight || currentTree.height),
+            w: currentTree.originalWidth || currentTree.width,
+            h: currentTree.originalHeight || currentTree.height,
             asset: isTree2 ? 'tree2' : 'tree'
         });
     }
@@ -1361,6 +1441,11 @@ function gameLoop() {
     }
 
     // Render Player
+    const xOffset = runnerSprite.originalWidth ? (runnerSprite.width - runnerSprite.originalWidth) : 0;
+    const yOffset = runnerSprite.originalHeight ? (runnerSprite.height - runnerSprite.originalHeight) : 0;
+    const origW = runnerSprite.originalWidth || runnerSprite.width;
+    const origH = runnerSprite.originalHeight || runnerSprite.height;
+    
     let pDrawY = groundY - runnerSprite.height - playerY;
     
     // Screenshake offset calculation
@@ -1378,7 +1463,7 @@ function gameLoop() {
     // Draw Shield Bubble if active
     if (hasShield) {
         ctx.beginPath();
-        ctx.arc(playerX + runnerSprite.width/2, pDrawY + runnerSprite.height/2, runnerSprite.width/1.2, 0, Math.PI * 2);
+        ctx.arc(playerX + origW/2, pDrawY + yOffset + origH/2, origW/1.2, 0, Math.PI * 2);
         ctx.strokeStyle = `rgba(0, 240, 255, ${0.4 + Math.sin(frameCount * 0.1) * 0.2})`;
         ctx.lineWidth = 4;
         ctx.shadowColor = '#00F0FF';
@@ -1386,11 +1471,11 @@ function gameLoop() {
         ctx.stroke();
     }
 
-    ctx.drawImage(runnerSprite, playerX, pDrawY);
+    ctx.drawImage(runnerSprite, playerX - xOffset, pDrawY);
     ctx.restore();
 
     // Process and draw obstacles
-    let pRect = { x: playerX, y: pDrawY, w: runnerSprite.width, h: runnerSprite.height };
+    let pRect = { x: playerX, y: pDrawY + yOffset, w: origW, h: origH };
 
     for (let i = obstacles.length - 1; i >= 0; i--) {
         const o = obstacles[i];
@@ -1407,33 +1492,36 @@ function gameLoop() {
         }
 
         // Draw obstacle
-        let oDrawY = o.y;
-        let activeAsset;
+        let activeAsset = null;
         
         if (o.type === 'tree') {
             activeAsset = o.asset === 'tree2' ? ASSETS.tree2 : ASSETS.tree;
-            ctx.drawImage(activeAsset, o.x, o.y);
         } 
         else if (o.type === 'bird') {
             activeAsset = (Math.floor(frameCount / 8) % 2 === 0) ? ASSETS.bird1 : ASSETS.bird2;
-            ctx.drawImage(activeAsset, o.x, o.y);
         }
         else if (o.type === 'carrot' && !o.collected) {
-            ctx.drawImage(ASSETS.carrot, o.x, o.y);
+            activeAsset = ASSETS.carrot;
         }
         else if (o.type === 'goldenCarrot' && !o.collected) {
-            ctx.drawImage(ASSETS.goldenCarrot, o.x, o.y);
+            activeAsset = ASSETS.goldenCarrot;
             // Spawn golden particles on it
             if (frameCount % 12 === 0) {
-                ParticleSystem.spawn(o.x + 15, o.y + 15, '#FFD166', 0.2, 1, 2);
+                ParticleSystem.spawn(o.x + (activeAsset.originalWidth || activeAsset.width) / 2, o.y + (activeAsset.originalHeight || activeAsset.height) / 2, '#FFD166', 0.2, 1, 2);
             }
         }
         else if (o.type === 'shield' && !o.collected) {
-            ctx.drawImage(ASSETS.shieldPowerup, o.x, o.y);
+            activeAsset = ASSETS.shieldPowerup;
             // Glowing particles around powerup
             if (frameCount % 10 === 0) {
-                ParticleSystem.spawn(o.x + 15, o.y + 15, '#00F0FF', 0.3, 1, 2);
+                ParticleSystem.spawn(o.x + (activeAsset.originalWidth || activeAsset.width) / 2, o.y + (activeAsset.originalHeight || activeAsset.height) / 2, '#00F0FF', 0.3, 1, 2);
             }
+        }
+
+        if (activeAsset) {
+            const oxOffset = activeAsset.originalWidth ? (activeAsset.width - activeAsset.originalWidth) : 0;
+            const oyOffset = activeAsset.originalHeight ? (activeAsset.height - activeAsset.originalHeight) : 0;
+            ctx.drawImage(activeAsset, o.x - oxOffset, o.y - oyOffset);
         }
 
         // Collisions checks
@@ -1458,7 +1546,7 @@ function gameLoop() {
                 
                 // Spawn happy star particles
                 const color = o.type === 'goldenCarrot' ? '#FFD166' : '#FF9800';
-                ParticleSystem.spawn(o.x + 10, o.y + 10, color, 1.2, 15, 3);
+                ParticleSystem.spawn(o.x + o.w / 2, o.y + o.h / 2, color, 1.2, 15, 3);
                 AudioEngine.playCarrot();
                 
                 // remove from active list
@@ -1469,7 +1557,7 @@ function gameLoop() {
             if (checkHitbox(pRect, oRect)) {
                 o.collected = true;
                 hasShield = true;
-                ParticleSystem.spawn(o.x + 10, o.y + 10, '#00F0FF', 1.2, 20, 3);
+                ParticleSystem.spawn(o.x + o.w / 2, o.y + o.h / 2, '#00F0FF', 1.2, 20, 3);
                 AudioEngine.playPowerup();
                 obstacles.splice(i, 1);
             }
