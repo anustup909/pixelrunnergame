@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pixel-runner-deluxe-v1';
+const CACHE_NAME = 'pixel-runner-deluxe-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -11,6 +11,7 @@ const ASSETS = [
 
 // Install Event - cache core resources
 self.addEventListener('install', e => {
+  self.skipWaiting(); // Force the waiting service worker to become active immediately
   e.waitUntil(
     caches.open(CACHE_NAME).then(cache => {
       console.log('Service Worker: Caching Game Assets');
@@ -21,6 +22,7 @@ self.addEventListener('install', e => {
 
 // Activate Event - clear old cache versions
 self.addEventListener('activate', e => {
+  self.clients.claim(); // Force active service worker to take control of all open clients
   e.waitUntil(
     caches.keys().then(keys => {
       return Promise.all(
